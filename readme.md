@@ -1,31 +1,8 @@
-# Steps to reproduce the bug
+Macro definition and expansion in same compilation run can cause name collisions with toplevel definitions
 
-- dotc:
-
-  ```
-  dotc macroman/src/*.scala
-  ```
-
-
-- alternatively, this project is also set up to use mill:
-
-  ```
-  mill clean && mill macroman.compile
-  ```
-
-  (the clean is important, as partially compiling the project does not trigger the bug)
-
-
-
-
-
-- happens only if toplevel is top-level (i.e. not in an object)
-
-
-Simultanous macro expansion in top-level functions and class cause collisions
-
-If a macro is expanded by a top-level function and a class within that package,
-and if the macro is defined in the same project, a name collision appears.
+If a macro is expanded by a toplevel function and at another place in the same
+package but in a different file, and if the macro is defined in the same
+compilation run, a name collision appears.
 
 Consider the following example. Assume these 3 files:
 
@@ -46,15 +23,38 @@ Consider the following example. Assume these 3 files:
   }
   ```
 
-- the second expansion site, `macroman.scala`:
+- the second expansion site, `toplevel.scala`:
 
   ```
-  def toplevel: Unit = Macro.expand()
+  def fct: Unit = Macro.expand()
   ```
 
+Compiling all three files at once will produce the following error.
 
-Expanding a macro *that is defined within the same project* 
+`dotc Macro.scala Clazz.scala toplevel.scala`:
 
-package$ is already defined as package object package
+```
+-- Error: toplevel.scala:1:0 ---------------------------------------------------
+1 |def fct: Unit = Macro.expand()
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |toplevel$package$ is already defined as package object toplevel$package
+1 error found
+```
 
-//When compiling 
+Some notes:
+
+- compiling them separately works as intended:
+  
+  ```
+  dotc Macro.scala && dotc Clazz.scala toplevel.scala # OK
+  dotc Macro.scala Clazz.scala && dotc toplevel.scala # OK
+  dotc Macro.scala toplevel.scala && dotc Clazz.scala # OK
+  ```
+
+- `Clazz` and `fct` must be defined in the same package but in different files,
+  for this bug to manifest itself.
+
+- the other expansion site doesn't have to be in a class. It can very well be
+  another toplevel function in a different file. The issue will manifest itself
+  as long as expansions are in different files but in the same package and at
+  least one of them is a toplevel definition.

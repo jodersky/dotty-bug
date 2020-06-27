@@ -1,1 +1,1 @@
-def toplevel: Unit = Macro.expand()
+def fct: Unit = Macro.expand()
