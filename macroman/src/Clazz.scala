@@ -1,5 +1,5 @@
 package macroman
 
 class Clazz {
-  def foo = summon[Position]
+  def foo = Macro.expand()
 }
